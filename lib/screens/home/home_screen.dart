@@ -41,6 +41,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
     if (userId != null) {
       habitProvider.initHabits(userId);
+
+      // Check if it's past 9 PM and trigger friend accountability check
+      final now = DateTime.now();
+      if (now.hour >= 21) {
+        habitProvider.checkFriendAccountability(userId);
+      }
     }
 
     // Check if first habit needs to be created (from registration)

@@ -90,6 +90,21 @@ class AchievementService {
         userId: userId, badgeType: AppConstants.badgeFirstFriend);
   }
 
+  /// Award 7-day friendship streak badge
+  Future<AchievementModel?> awardFriendshipStreakBadge(String userId) async {
+    final existing = await _firestore
+        .collection(AppConstants.achievementsCollection)
+        .where('userId', isEqualTo: userId)
+        .where('badgeType', isEqualTo: AppConstants.badge7DayFriendship)
+        .limit(1)
+        .get();
+
+    if (existing.docs.isNotEmpty) return null;
+
+    return _awardBadge(
+        userId: userId, badgeType: AppConstants.badge7DayFriendship);
+  }
+
   /// Get all achievements for a user
   Stream<List<AchievementModel>> getUserAchievements(String userId) {
     return _firestore

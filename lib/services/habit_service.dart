@@ -3,6 +3,7 @@ import '../models/habit_model.dart';
 import '../models/completion_model.dart';
 import '../models/work_model.dart';
 import '../config/constants.dart';
+import 'achievement_service.dart';
 
 class HabitService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -134,6 +135,10 @@ class HabitService {
           .collection(AppConstants.usersCollection)
           .doc(userId)
           .update({'completedHabits': FieldValue.increment(1)});
+
+      // Award habit completion badge
+      final achievementService = AchievementService();
+      await achievementService.awardHabitCompletionBadge(userId);
     }
   }
 

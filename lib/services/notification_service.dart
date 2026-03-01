@@ -157,6 +157,99 @@ class NotificationService {
     }
   }
 
+  /// Send "Push your friend!" notification when a friend hasn't completed tasks by 9 PM
+  Future<void> sendPushFriendAlert(String friendName) async {
+    try {
+      if (!_initialized) return;
+
+      await _notifications.show(
+        id: 10 + friendName.hashCode.abs() % 1000,
+        title: '\ud83d\udca5 Push Your Friend!',
+        body: '$friendName hasn\'t completed their habits yet today! Send them a nudge to keep the friendship streak alive! \ud83d\udd25',
+        notificationDetails: NotificationDetails(
+          android: AndroidNotificationDetails(
+            AppConstants.friendAlertChannel,
+            'Friend Alerts',
+            channelDescription: 'Friend accountability notifications',
+            importance: Importance.high,
+            priority: Priority.high,
+            icon: '@mipmap/ic_launcher',
+          ),
+          iOS: const DarwinNotificationDetails(
+            presentAlert: true,
+            presentBadge: true,
+            presentSound: true,
+          ),
+        ),
+      );
+    } catch (e) {
+      print('Error sending push friend alert: $e');
+    }
+  }
+
+  /// Send "Save your friend!" notification when the user hasn't completed tasks
+  Future<void> sendSaveFriendAlert(String userName) async {
+    try {
+      if (!_initialized) return;
+
+      await _notifications.show(
+        id: 20 + userName.hashCode.abs() % 1000,
+        title: '\ud83d\udea8 Save Your Friend!',
+        body: 'Your friend $userName\'s streak is at risk because you haven\'t completed your habits! Complete them now to save the friendship streak! \ud83d\udcaa',
+        notificationDetails: NotificationDetails(
+          android: AndroidNotificationDetails(
+            AppConstants.friendAlertChannel,
+            'Friend Alerts',
+            channelDescription: 'Friend accountability notifications',
+            importance: Importance.high,
+            priority: Priority.high,
+            icon: '@mipmap/ic_launcher',
+          ),
+          iOS: const DarwinNotificationDetails(
+            presentAlert: true,
+            presentBadge: true,
+            presentSound: true,
+          ),
+        ),
+      );
+    } catch (e) {
+      print('Error sending save friend alert: $e');
+    }
+  }
+
+  /// Schedule 9 PM friend accountability check
+  Future<void> scheduleFriendAccountabilityCheck() async {
+    try {
+      if (!_initialized) return;
+
+      await _notifications.zonedSchedule(
+        id: 9,
+        title: '\ud83d\udc65 Friend Accountability Check',
+        body: 'Check if your friends have completed their habits today!',
+        scheduledDate: _nextInstanceOfTime(21, 0),
+        notificationDetails: NotificationDetails(
+          android: AndroidNotificationDetails(
+            AppConstants.friendAlertChannel,
+            'Friend Alerts',
+            channelDescription: 'Friend accountability check at 9 PM',
+            importance: Importance.high,
+            priority: Priority.high,
+            icon: '@mipmap/ic_launcher',
+          ),
+          iOS: const DarwinNotificationDetails(
+            presentAlert: true,
+            presentBadge: true,
+            presentSound: true,
+          ),
+        ),
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        matchDateTimeComponents: DateTimeComponents.time,
+      );
+    } catch (e) {
+      print('Error scheduling friend accountability check: $e');
+    }
+  }
+
   /// Send birthday notification
   Future<void> sendBirthdayNotification() async {
     try {

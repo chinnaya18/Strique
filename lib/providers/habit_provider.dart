@@ -1,18 +1,23 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/habit_model.dart';
 import '../models/completion_model.dart';
 import '../models/work_model.dart';
+import '../models/friendship_model.dart';
+import '../config/constants.dart';
 import '../services/habit_service.dart';
 import '../services/streak_service.dart';
 import '../services/achievement_service.dart';
 import '../services/notification_service.dart';
+import '../services/friendship_service.dart';
 
 class HabitProvider extends ChangeNotifier {
   final HabitService _habitService = HabitService();
   final StreakService _streakService = StreakService();
   final AchievementService _achievementService = AchievementService();
   final NotificationService _notificationService = NotificationService();
+  final FriendshipService _friendshipService = FriendshipService();
 
   StreamSubscription? _habitsSubscription;
   StreamSubscription? _activeHabitsSubscription;
@@ -58,6 +63,7 @@ class HabitProvider extends ChangeNotifier {
     // Schedule daily morning reminder & evening reminder for incomplete habits/tasks
     _notificationService.scheduleDailyReminder(hour: 8, minute: 0);
     _notificationService.scheduleEveningReminder(hour: 20, minute: 0);
+    _notificationService.scheduleFriendAccountabilityCheck();
   }
 
   /// Load today's completions
@@ -171,6 +177,12 @@ class HabitProvider extends ChangeNotifier {
             currentStreak: stats['currentStreak'],
           );
         }
+
+        // Check and update friendship streaks (when both friends completed)
+        await _friendshipService.checkAndUpdateFriendshipStreaks(userId);
+
+        // Notify friends that this user completed their habits
+        await _notifyFriendsOfCompletion(userId);
       }
 
       notifyListeners();
@@ -305,6 +317,45 @@ class HabitProvider extends ChangeNotifier {
   void clearError() {
     _error = null;
     notifyListeners();
+  }
+
+  /// Notify all friends that this user completed their habits (real-time via Firestore)
+  Future<void> _notifyFriendsOfCompletion(String userId) async {
+    try {
+      final friendships = await _friendshipService.getLeaderboard(userId);
+      for (final friendship in friendships) {
+        if (friendship.status != FriendshipStatus.accepted) continue;
+
+        final friendId = friendship.getFriendId(userId);
+        final userName = friendship.getFriendName(friendId); // current user's name from friend's perspective
+
+        // Send local notification
+        await _notificationService.sendFriendAlert(userName);
+
+        // Also create a Firestore notification document for cross-device sync
+        await FirebaseFirestore.instance
+            .collection(AppConstants.notificationsCollection)
+            .add({
+          'targetUserId': friendId,
+          'type': 'friend_completed',
+          'title': '\ud83d\udc4b Friend Activity',
+          'body': '$userName completed all their habits today! Can you keep up?',
+          'createdAt': Timestamp.now(),
+          'read': false,
+        });
+      }
+    } catch (e) {
+      debugPrint('Error notifying friends: $e');
+    }
+  }
+
+  /// Check friend completion status at 9 PM and send push/save notifications
+  Future<void> checkFriendAccountability(String userId) async {
+    try {
+      await _friendshipService.checkFriendCompletionAndNotify(userId);
+    } catch (e) {
+      debugPrint('Error checking friend accountability: $e');
+    }
   }
 
   @override
