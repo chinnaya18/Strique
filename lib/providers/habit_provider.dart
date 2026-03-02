@@ -60,6 +60,9 @@ class HabitProvider extends ChangeNotifier {
 
     loadTodayCompletions(userId);
 
+    // Check if the user missed any day and reset streak if needed
+    _streakService.checkAndResetStreakIfNeeded(userId);
+
     // Schedule daily morning reminder & evening reminder for incomplete habits/tasks
     _notificationService.scheduleDailyReminder(hour: 8, minute: 0);
     _notificationService.scheduleEveningReminder(hour: 20, minute: 0);

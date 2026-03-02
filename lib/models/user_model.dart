@@ -15,6 +15,7 @@ class UserModel {
   final int streakFreezeCount;
   final String? friendId;
   final String? profileImageUrl;
+  final DateTime? lastStreakDate;
 
   UserModel({
     required this.uid,
@@ -31,6 +32,7 @@ class UserModel {
     this.streakFreezeCount = 0,
     this.friendId,
     this.profileImageUrl,
+    this.lastStreakDate,
   });
 
   factory UserModel.fromMap(Map<String, dynamic> map, String uid) {
@@ -53,6 +55,9 @@ class UserModel {
       streakFreezeCount: map['streakFreezeCount'] ?? 0,
       friendId: map['friendId'],
       profileImageUrl: map['profileImageUrl'],
+      lastStreakDate: map['lastStreakDate'] != null
+          ? (map['lastStreakDate'] as Timestamp).toDate()
+          : null,
     );
   }
 
@@ -73,6 +78,9 @@ class UserModel {
       'streakFreezeCount': streakFreezeCount,
       'friendId': friendId,
       'profileImageUrl': profileImageUrl,
+      'lastStreakDate': lastStreakDate != null
+          ? Timestamp.fromDate(lastStreakDate!)
+          : null,
     };
   }
 
@@ -89,6 +97,7 @@ class UserModel {
     int? streakFreezeCount,
     String? friendId,
     String? profileImageUrl,
+    DateTime? lastStreakDate,
   }) {
     return UserModel(
       uid: uid,
@@ -105,6 +114,7 @@ class UserModel {
       streakFreezeCount: streakFreezeCount ?? this.streakFreezeCount,
       friendId: friendId ?? this.friendId,
       profileImageUrl: profileImageUrl ?? this.profileImageUrl,
+      lastStreakDate: lastStreakDate ?? this.lastStreakDate,
     );
   }
 

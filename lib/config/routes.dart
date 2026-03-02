@@ -14,6 +14,7 @@ import '../screens/profile/profile_screen.dart';
 import '../screens/friends/friends_screen.dart';
 import '../screens/friends/add_friend_screen.dart';
 import '../screens/achievements/achievements_screen.dart';
+import '../screens/notifications/notification_settings_screen.dart';
 import '../screens/home/home_screen.dart';
 
 class AppRoutes {
@@ -33,6 +34,7 @@ class AppRoutes {
   static const String friends = '/friends';
   static const String addFriend = '/friends/add';
   static const String achievements = '/achievements';
+  static const String notifications = '/notifications';
 
   static Map<String, WidgetBuilder> routes = {
     splash: (context) => const SplashScreen(),
@@ -57,6 +59,7 @@ class AppRoutes {
     friends: (context) => const FriendsScreen(),
     addFriend: (context) => const AddFriendScreen(),
     achievements: (context) => const AchievementsScreen(),
+    notifications: (context) => const NotificationSettingsScreen(),
   };
 
   static Route<dynamic>? onGenerateRoute(RouteSettings settings) {
