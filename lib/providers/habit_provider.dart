@@ -204,18 +204,6 @@ class HabitProvider extends ChangeNotifier {
     }
   }
 
-  /// Notify all friends that user completed tasks
-  Future<void> _notifyFriendsOfCompletion(String userId) async {
-    try {
-      final friendshipService = FriendshipService();
-      await friendshipService.getLeaderboard(userId);
-      // Notifications are sent by CompletionSyncService
-      // when it detects the completion
-    } catch (e) {
-      debugPrint('Error notifying friends of completion: $e');
-    }
-  }
-
   /// Sync friendship streaks with friends
   Future<void> _syncFriendshipStreaks(String userId) async {
     try {
