@@ -196,9 +196,8 @@ class ProfileScreen extends StatelessWidget {
                 _MenuItem(
                   icon: Icons.notifications_outlined,
                   title: 'Notifications',
-                  onTap: () {
-                    // TODO: Notification settings
-                  },
+                  onTap: () =>
+                      Navigator.pushNamed(context, AppRoutes.notifications),
                 ),
               ],
             ),

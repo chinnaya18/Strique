@@ -90,7 +90,7 @@ class _AddFriendScreenState extends State<AddFriendScreen> {
               child: Column(
                 children: [
                   const Text(
-                    'Your Friend ID',
+                    'Your ID',
                     style: TextStyle(
                       color: Colors.white70,
                       fontSize: 14,

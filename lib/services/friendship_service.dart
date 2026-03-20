@@ -3,6 +3,9 @@ import '../models/friendship_model.dart';
 import '../models/user_model.dart';
 import '../config/constants.dart';
 import 'cross_device_sync_service.dart';
+import 'streak_service.dart';
+import 'achievement_service.dart';
+import 'notification_service.dart';
 
 class FriendshipService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -202,6 +205,17 @@ class FriendshipService {
 
     final friendship = FriendshipModel.fromMap(doc.data()!, doc.id);
 
+    // Prevent double-counting: only increment once per day
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    if (friendship.lastBothCompletedDate != null) {
+      final lastDate = friendship.lastBothCompletedDate!;
+      final lastDay = DateTime(lastDate.year, lastDate.month, lastDate.day);
+      if (lastDay.isAtSameMomentAs(today) && bothCompleted) {
+        return; // Already counted today
+      }
+    }
+
     if (bothCompleted) {
       final newStreak = friendship.friendshipStreak + 1;
       final newMax = newStreak > friendship.maxFriendshipStreak
@@ -214,8 +228,15 @@ class FriendshipService {
           .update({
         'friendshipStreak': newStreak,
         'maxFriendshipStreak': newMax,
-        'lastBothCompletedDate': Timestamp.fromDate(DateTime.now()),
+        'lastBothCompletedDate': Timestamp.fromDate(now),
       });
+
+      // Award 7-day friendship badge if applicable
+      if (newStreak == 7) {
+        final achievementService = AchievementService();
+        await achievementService.awardFriendshipStreakBadge(friendship.user1Id);
+        await achievementService.awardFriendshipStreakBadge(friendship.user2Id);
+      }
     } else {
       // Reset friendship streak
       await _firestore
@@ -225,6 +246,88 @@ class FriendshipService {
         'friendshipStreak': 0,
       });
     }
+  }
+
+  /// Check and update all friendship streaks for a user who just completed all habits
+  Future<void> checkAndUpdateFriendshipStreaks(String userId) async {
+    final streakService = StreakService();
+
+    // Get all accepted friendships for this user
+    final snapshot = await _firestore
+        .collection(AppConstants.friendshipsCollection)
+        .where(Filter.or(
+          Filter('user1Id', isEqualTo: userId),
+          Filter('user2Id', isEqualTo: userId),
+        ))
+        .get();
+
+    for (final doc in snapshot.docs) {
+      final friendship = FriendshipModel.fromMap(doc.data(), doc.id);
+      if (friendship.status != FriendshipStatus.accepted) continue;
+
+      // Get the friend's ID
+      final friendId = friendship.getFriendId(userId);
+
+      // Check if the friend has also completed all habits today
+      final friendCompleted = await streakService.areAllHabitsCompletedToday(friendId);
+
+      if (friendCompleted) {
+        // Both completed! Update the friendship streak
+        await updateFriendshipStreak(
+          friendshipId: friendship.id,
+          bothCompleted: true,
+        );
+      }
+    }
+  }
+
+  /// Schedule 9 PM check for incomplete friends and send push/save notifications
+  Future<void> checkFriendCompletionAndNotify(String userId) async {
+    final streakService = StreakService();
+    final notificationService = NotificationService();
+
+    // Check if current user completed
+    final userCompleted = await streakService.areAllHabitsCompletedToday(userId);
+
+    // Get all accepted friendships
+    final snapshot = await _firestore
+        .collection(AppConstants.friendshipsCollection)
+        .where(Filter.or(
+          Filter('user1Id', isEqualTo: userId),
+          Filter('user2Id', isEqualTo: userId),
+        ))
+        .get();
+
+    for (final doc in snapshot.docs) {
+      final friendship = FriendshipModel.fromMap(doc.data(), doc.id);
+      if (friendship.status != FriendshipStatus.accepted) continue;
+
+      final friendId = friendship.getFriendId(userId);
+      final friendName = friendship.getFriendName(userId);
+      final friendCompleted = await streakService.areAllHabitsCompletedToday(friendId);
+
+      if (!friendCompleted) {
+        // Friend hasn't completed — notify user to push their friend
+        await notificationService.sendPushFriendAlert(friendName);
+      }
+
+      if (!userCompleted) {
+        // User hasn't completed — store a Firestore notification for the friend
+        // so the friend's device picks it up as "Save your friend!"
+        await _firestore.collection(AppConstants.notificationsCollection).add({
+          'targetUserId': friendId,
+          'type': 'save_friend',
+          'title': '🛟 Save Your Friend!',
+          'body': '${ _getUserName(userId, friendship) } hasn\'t completed their habits yet! Encourage them!',
+          'createdAt': Timestamp.now(),
+          'read': false,
+        });
+      }
+    }
+  }
+
+  String _getUserName(String userId, FriendshipModel friendship) {
+    return userId == friendship.user1Id ? friendship.user1Name : friendship.user2Name;
   }
 
   /// Remove friendship
