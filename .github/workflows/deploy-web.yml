@@ -8,8 +8,6 @@ on:
 
 permissions:
   contents: write
-  pages: write
-  id-token: write
 
 concurrency:
   group: "gh-pages"
@@ -34,16 +32,12 @@ jobs:
       - name: Build Web App
         run: flutter build web --release --base-href "/${{ github.event.repository.name }}/"
 
-      - name: Setup Pages
-        uses: actions/configure-pages@v4
-        with:
-          enablement: true
-
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: build/web
-
       - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+        run: |
+          cd build/web
+          git init
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git add .
+          git commit -m "Deploy to gh-pages"
+          git push -f https://${{ github.token }}@github.com/${{ github.repository }}.git HEAD:gh-pages
