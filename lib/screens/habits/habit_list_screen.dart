@@ -22,7 +22,6 @@ class HabitListScreen extends StatelessWidget {
       length: 2,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('My Habits'),
           bottom: const TabBar(
             tabs: [
               Tab(text: 'Active'),

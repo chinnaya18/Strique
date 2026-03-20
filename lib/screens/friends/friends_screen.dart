@@ -21,7 +21,7 @@ class _FriendsScreenState extends State<FriendsScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
   }
 
   @override
@@ -44,6 +44,7 @@ class _FriendsScreenState extends State<FriendsScreen>
           controller: _tabController,
           tabs: const [
             Tab(text: 'Friends'),
+            Tab(text: 'Requests'),
             Tab(text: 'Leaderboard'),
           ],
           indicatorColor: Colors.white,
@@ -62,8 +63,10 @@ class _FriendsScreenState extends State<FriendsScreen>
       body: TabBarView(
         controller: _tabController,
         children: [
-          // Friends List
+          // Friends List (Accepted only)
           _buildFriendsList(userId),
+          // Pending Requests
+          _buildPendingRequests(userId),
           // Leaderboard
           _buildLeaderboard(userId),
         ],
@@ -80,7 +83,7 @@ class _FriendsScreenState extends State<FriendsScreen>
 
   Widget _buildFriendsList(String userId) {
     return StreamBuilder<List<FriendshipModel>>(
-      stream: _friendshipService.getUserFriendships(userId),
+      stream: _friendshipService.getAcceptedFriendships(userId),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
@@ -201,6 +204,165 @@ class _FriendsScreenState extends State<FriendsScreen>
                       : AppColors.textSecondaryLight,
                 ),
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPendingRequests(String userId) {
+    return StreamBuilder<List<FriendshipModel>>(
+      stream: _friendshipService.getPendingFriendRequests(userId),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        final requests = snapshot.data ?? [];
+
+        if (requests.isEmpty) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(40),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text('📬', style: TextStyle(fontSize: 64)),
+                  const SizedBox(height: 16),
+                  Text(
+                    'No pending requests',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'When someone sends you a friend request, it will appear here.',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppColors.textSecondaryLight,
+                        ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        return ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: requests.length,
+          itemBuilder: (context, index) {
+            final request = requests[index];
+            return _buildPendingRequestCard(request, userId);
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildPendingRequestCard(FriendshipModel request, String userId) {
+    final senderName = request.user1Name;
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            // Avatar
+            CircleAvatar(
+              radius: 24,
+              backgroundColor: AppColors.accent.withOpacity(0.1),
+              child: Text(
+                senderName.isNotEmpty ? senderName[0].toUpperCase() : '?',
+                style: const TextStyle(
+                  color: AppColors.accent,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
+              ),
+            ),
+            const SizedBox(width: 16),
+
+            // Sender info
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    senderName,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 16,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Friend request pending',
+                    style: TextStyle(
+                      color: AppColors.textSecondaryLight,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Action buttons
+            PopupMenuButton<String>(
+              onSelected: (value) async {
+                if (value == 'accept') {
+                  try {
+                    await _friendshipService.acceptFriendRequest(
+                      friendshipId: request.id,
+                      userId: userId,
+                    );
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('You are now friends with $senderName! 🎉'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  } catch (e) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Error: $e')),
+                    );
+                  }
+                } else if (value == 'reject') {
+                  try {
+                    await _friendshipService.rejectFriendRequest(
+                      friendshipId: request.id,
+                      userId: userId,
+                    );
+                  } catch (e) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Error: $e')),
+                    );
+                  }
+                }
+              },
+              itemBuilder: (BuildContext context) => [
+                const PopupMenuItem(
+                  value: 'accept',
+                  child: Row(
+                    children: [
+                      Icon(Icons.check, color: Colors.green),
+                      SizedBox(width: 12),
+                      Text('Accept'),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'reject',
+                  child: Row(
+                    children: [
+                      Icon(Icons.close, color: Colors.red),
+                      SizedBox(width: 12),
+                      Text('Reject'),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ],
         ),

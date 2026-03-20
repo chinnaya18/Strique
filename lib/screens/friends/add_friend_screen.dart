@@ -55,7 +55,7 @@ class _AddFriendScreenState extends State<AddFriendScreen> {
 
         setState(() {
           _success =
-              'Friend added successfully! Start your friendship streak! 🎉';
+              'Friend request sent successfully! They\'ll receive a notification. 👋';
           _friendCodeController.clear();
         });
       }

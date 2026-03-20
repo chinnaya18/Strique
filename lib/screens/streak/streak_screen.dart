@@ -36,9 +36,6 @@ class _StreakScreenState extends State<StreakScreen> {
     final user = authProvider.user;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Your Streak'),
-      ),
       body: RefreshIndicator(
         onRefresh: _loadStats,
         child: SingleChildScrollView(

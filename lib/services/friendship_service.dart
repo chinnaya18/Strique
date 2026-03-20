@@ -2,9 +2,11 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/friendship_model.dart';
 import '../models/user_model.dart';
 import '../config/constants.dart';
+import 'cross_device_sync_service.dart';
 
 class FriendshipService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final _syncService = CrossDeviceSyncService();
 
   /// Add a friend using friend ID
   Future<FriendshipModel?> addFriend({
@@ -70,6 +72,14 @@ class FriendshipService {
     );
 
     await docRef.set(friendship.toMap());
+
+    // Send friend request notification
+    await _syncService.sendFriendRequestNotification(
+      fromUserId: currentUserId,
+      fromUserName: currentUser.name,
+      toUserId: friendUserId,
+    );
+
     return friendship;
   }
 
@@ -93,12 +103,50 @@ class FriendshipService {
       throw Exception('Unauthorized');
     }
 
+    // Determine who accepted and who to notify
+    final acceptorId = userId;
+    final recipientId =
+        userId == friendship.user1Id ? friendship.user2Id : friendship.user1Id;
+    final acceptorName =
+        userId == friendship.user1Id ? friendship.user1Name : friendship.user2Name;
+
     await docRef.update({
       'status': 'accepted',
     });
+
+    // Send acceptance notification to the other user
+    await _syncService.sendFriendRequestAcceptedNotification(
+      fromUserId: acceptorId,
+      fromUserName: acceptorName,
+      toUserId: recipientId,
+    );
   }
 
-  /// Get all friendships for a user
+  /// Reject a friend request
+  Future<void> rejectFriendRequest({
+    required String friendshipId,
+    required String userId,
+  }) async {
+    final docRef =
+        _firestore.collection(AppConstants.friendshipsCollection).doc(friendshipId);
+
+    final doc = await docRef.get();
+    if (!doc.exists) {
+      throw Exception('Friendship request not found');
+    }
+
+    final friendship = FriendshipModel.fromMap(doc.data()!, friendshipId);
+
+    // Only the receiver (user2Id) can reject
+    if (friendship.user2Id != userId && friendship.user1Id != userId) {
+      throw Exception('Unauthorized');
+    }
+
+    // Delete the friendship request
+    await docRef.delete();
+  }
+
+  /// Get all friendships for a user (all statuses)
   Stream<List<FriendshipModel>> getUserFriendships(String userId) {
     return _firestore
         .collection(AppConstants.friendshipsCollection)
@@ -106,6 +154,33 @@ class FriendshipService {
           Filter('user1Id', isEqualTo: userId),
           Filter('user2Id', isEqualTo: userId),
         ))
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => FriendshipModel.fromMap(doc.data(), doc.id))
+            .toList());
+  }
+
+  /// Get only accepted friendships
+  Stream<List<FriendshipModel>> getAcceptedFriendships(String userId) {
+    return _firestore
+        .collection(AppConstants.friendshipsCollection)
+        .where(Filter.or(
+          Filter('user1Id', isEqualTo: userId),
+          Filter('user2Id', isEqualTo: userId),
+        ))
+        .where('status', isEqualTo: 'accepted')
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => FriendshipModel.fromMap(doc.data(), doc.id))
+            .toList());
+  }
+
+  /// Get pending friend requests (where user is receiver)
+  Stream<List<FriendshipModel>> getPendingFriendRequests(String userId) {
+    return _firestore
+        .collection(AppConstants.friendshipsCollection)
+        .where('user2Id', isEqualTo: userId)
+        .where('status', isEqualTo: 'pending')
         .snapshots()
         .map((snapshot) => snapshot.docs
             .map((doc) => FriendshipModel.fromMap(doc.data(), doc.id))
@@ -168,6 +243,7 @@ class FriendshipService {
           Filter('user1Id', isEqualTo: userId),
           Filter('user2Id', isEqualTo: userId),
         ))
+        .where('status', isEqualTo: 'accepted')
         .get();
 
     final friendships = snapshot.docs

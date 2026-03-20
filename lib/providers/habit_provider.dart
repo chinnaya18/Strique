@@ -7,6 +7,8 @@ import '../services/habit_service.dart';
 import '../services/streak_service.dart';
 import '../services/achievement_service.dart';
 import '../services/notification_service.dart';
+import '../services/completion_sync_service.dart';
+import '../services/friendship_service.dart';
 
 class HabitProvider extends ChangeNotifier {
   final HabitService _habitService = HabitService();
@@ -57,7 +59,7 @@ class HabitProvider extends ChangeNotifier {
 
     // Schedule daily morning reminder & evening reminder for incomplete habits/tasks
     _notificationService.scheduleDailyReminder(hour: 8, minute: 0);
-    _notificationService.scheduleEveningReminder(hour: 20, minute: 0);
+    _notificationService.scheduleEveningReminder();
   }
 
   /// Load today's completions
@@ -170,6 +172,12 @@ class HabitProvider extends ChangeNotifier {
             userId: userId,
             currentStreak: stats['currentStreak'],
           );
+
+          // Notify all friends that this user completed their tasks
+          await _notifyFriendsOfCompletion(userId);
+
+          // Trigger sync to check if friends also completed
+          await _syncFriendshipStreaks(userId);
         }
       }
 
@@ -179,6 +187,29 @@ class HabitProvider extends ChangeNotifier {
       _error = e.toString();
       notifyListeners();
       return false;
+    }
+  }
+
+  /// Notify all friends that user completed tasks
+  Future<void> _notifyFriendsOfCompletion(String userId) async {
+    try {
+      final friendshipService = FriendshipService();
+      await friendshipService.getLeaderboard(userId);
+      // Notifications are sent by CompletionSyncService
+      // when it detects the completion
+    } catch (e) {
+      debugPrint('Error notifying friends of completion: $e');
+    }
+  }
+
+  /// Sync friendship streaks with friends
+  Future<void> _syncFriendshipStreaks(String userId) async {
+    try {
+      final completionSyncService = CompletionSyncService();
+      // Trigger the sync check to see if friend also completed
+      await completionSyncService.checkAndResetStreaksIfNeeded();
+    } catch (e) {
+      debugPrint('Error syncing friendship streaks: $e');
     }
   }
 
